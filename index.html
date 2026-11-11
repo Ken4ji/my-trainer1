@@ -1,0 +1,447 @@
+<!doctype html>
+<!--
+=====================================================================
+ПРОЕКТ «МОЙ ТРЕНЕР» (Telegram Mini App). Всё в одном файле.
+=====================================================================
+ЧТО ЭТО
+  Приложение с планами тренировок. Открывается в браузере или внутри Telegram.
+  Дневник и выбранный план хранятся в памяти телефона (localStorage).
+
+КАК ЗАПУСТИТЬ
+  Просто открой этот файл в браузере. Для Telegram нужен публичный адрес
+  (например GitHub Pages), потом бот через @BotFather и кнопка «Открыть приложение».
+
+ГДЕ ЧТО ЛЕЖИТ В КОДЕ (ищи по названию в комментариях)
+  Рисунки          схемы упражнений (простые SVG, рисую сам)
+  Упражнения       список EX. У каждого: название, группа, тип записи, советы
+                   тип записи: s = вес и повторы, r = только повторы,
+                   c = минуты (кардио), t = секунды (планка, растяжка)
+  Готовые планы    список PLANS. У плана есть уровни: Лёгкий, Средний, Сложный
+  Таймер           полоса снизу, свой таймер, быстрые кнопки
+  Экраны           выбор плана, главный, день, упражнение, разминка, дневник, правка плана
+
+КАК ДОБАВИТЬ УПРАЖНЕНИЕ
+  В список EX добавь строку по образцу. Оно само появится в выборе упражнений.
+
+ИСТОЧНИКИ
+  Первый план: файл plan_full_body.html (по видео «Год мышц»).
+  Упражнения и программа «По группам мышц»: статья axgym.ru
+  (axgym.ru/articles/kak-nachat-trenirovatsya-muzhchine-novichku-sovety-bazovye-uprazhneniya-i-programma).
+  Фото из статьи не использованы (авторские права), схемы нарисованы заново.
+
+ЧТО СДЕЛАНО
+  1. Прототип: выбор плана, дни, карточки упражнений, дневник.
+  2. Чёрная тема и тёплые оранжевые кнопки.
+  3. Кардио, растяжка, разминка, таймер отдыха, свой план.
+  4. Свой таймер на главном экране и в упражнениях.
+  5. Выбор сложности (Лёгкий, Средний, Сложный), Full Body на 2 и 3 дня,
+     новые упражнения из статьи, программа «По группам мышц».
+  6. Схемы для всех упражнений (включая кардио и растяжку), миниатюры в списках.
+
+ИДЕИ НА БУДУЩЕЕ
+  Выложить в интернет и подключить бота. Свои фото или гифки упражнений.
+  Сохранение дневника в файл. Напоминания о тренировках через бота.
+
+ВАЖНО
+  Советы по технике составлены в общем виде, проверь их с тренером.
+  Это не медицинская рекомендация.
+=====================================================================
+-->
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мой тренер</title>
+<meta name="theme-color" content="#0f0f0f">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{--bg:#0f0f0f;--card:#1c1c1c;--text:#f5f5f5;--muted:#a3a3a3;--line:#2e2e2e;--acc:#f97316;color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  #app{max-width:640px;margin:0 auto;padding:16px 16px 110px}
+  h1{font-size:1.4rem;margin:8px 0 4px} h2{font-size:1.1rem;margin:0 0 6px} h3{font-size:1rem;margin:14px 0 6px}
+  .muted{color:var(--muted);font-size:.9rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+  .click{cursor:pointer} .click:active{opacity:.7}
+  .row{display:flex;gap:8px;align-items:center;justify-content:space-between}
+  .btn{background:var(--acc);color:#111;border:0;border-radius:10px;padding:10px 14px;font-size:1rem;font-weight:600;cursor:pointer}
+  .btn:active{opacity:.8}
+  .btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+  .btn.small{padding:6px 10px;font-size:.9rem}
+  .x{background:none;border:0;font-size:1.2rem;color:#a3a3a3;cursor:pointer;padding:4px 8px}
+  .tag{font-size:.75rem;background:#2a2a2a;color:#fdba74;border-radius:6px;padding:2px 6px;margin-left:6px;font-weight:500}
+  .back{background:none;border:0;color:var(--acc);font-size:1rem;padding:4px 0;cursor:pointer;font-weight:600}
+  .pair{display:flex;gap:8px} figure{flex:1;margin:0;text-align:center}
+  svg{width:100%;height:auto;background:#262626;border-radius:8px}
+  figcaption{font-size:.85rem;color:var(--muted)}
+  .soon{background:#262626;color:#a3a3a3;border-radius:8px;padding:18px;text-align:center;font-size:.9rem}
+  input{width:100%;padding:10px;border:1px solid #3a3a3a;border-radius:8px;font-size:1rem;background:#111;color:var(--text)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+  .tm{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin:8px 0}
+  .opts{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  ul{padding-left:20px;margin:8px 0} li{margin:4px 0}
+  .thumb{width:64px;flex:none}
+  .item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+  #timer{position:fixed;left:0;right:0;bottom:0;display:none;gap:10px;align-items:center;justify-content:space-between;
+    background:var(--acc);color:#111;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom));font-size:1.1rem;z-index:5}
+  #timer button{background:#111;color:#fff;border:0;border-radius:8px;padding:8px 16px;font-size:1rem;cursor:pointer}
+  #modal{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+  #modal .box{background:#1c1c1c;border:1px solid #2e2e2e;border-radius:14px;padding:18px;max-width:360px;width:100%}
+  #toast{position:fixed;left:16px;right:16px;bottom:90px;background:#f5f5f5;color:#111;padding:10px 14px;border-radius:10px;display:none;z-index:11;text-align:center}
+</style></head><body><div id="app"></div><div id="timer"></div><div id="modal"></div><div id="toast"></div>
+<script>
+// ---------- Telegram ----------
+try{
+ if(window.Telegram&&Telegram.WebApp){
+  var tg=Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+  try{tg.setHeaderColor('#0f0f0f');tg.setBackgroundColor('#0f0f0f')}catch(e){}
+  try{tg.disableVerticalSwipes()}catch(e){}
+ }
+}catch(e){}
+
+// ---------- Память телефона ----------
+function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+var state=load('state2',{my:null});
+var log=load('log',[]);
+var view={s:state.my?'home':'welcome',a:null,b:null};
+
+// ---------- Рисунки ----------
+var INK='#f5f5f5',GR='#737373',BL='#f97316';
+function svg(i){return '<svg viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg" role="img"><line x1="10" y1="180" x2="190" y2="180" stroke="'+GR+'" stroke-width="3" stroke-linecap="round"/>'+i+'</svg>'}
+function P(p){return '<polyline points="'+p+'" fill="none" stroke="'+INK+'" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'}
+function H(x,y,r){return '<circle cx="'+x+'" cy="'+y+'" r="'+(r||11)+'" fill="none" stroke="'+INK+'" stroke-width="5"/>'}
+function D(x,y,r){return '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+BL+'"/>'}
+function R(x,y,w,h,f){return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="2" fill="'+(f||GR)+'"/>'}
+function L(a,b,c,d,col,w){return '<line x1="'+a+'" y1="'+b+'" x2="'+c+'" y2="'+d+'" stroke="'+col+'" stroke-width="'+w+'" stroke-linecap="round"/>'}
+var LP=R(30,150,50,8)+R(20,128,8,30)+L(80,176,196,176,GR,3)+H(38,120,10)+P('48,128 70,150');
+var LAT=R(82,152,40,8)+P('100,150 140,150 140,178');
+var ROW=P('90,165 140,160 168,148')+R(168,130,6,42);
+var BEN=R(40,130,130,8)+R(48,138,5,40)+R(158,138,5,40)+H(52,118,9)+P('64,124 116,124')+P('116,124 150,152 152,178');
+var DIP=R(96,100,44,4,BL)+R(97,104,4,76)+R(135,104,4,76);
+
+// ---------- Упражнения ----------
+// k: s = вес и повторы, c = минуты (кардио), t = секунды (удержание)
+var EX={
+squat:{n:'Приседания со штангой',m:'Ноги',k:'s',
+ a:svg(H(100,38)+P('100,52 100,105')+P('100,105 102,142 100,178')+P('100,62 110,72')+D(97,56,8)),
+ b:svg(H(74,76)+P('82,90 100,138')+P('100,138 140,132 128,178')+P('84,94 96,100')+D(80,88,8)),
+ t:['Штанга на верхней части спины, не на шее.','Спина прямая, колени идут по носкам.','Таз назад и вниз, вставай без рывка.']},
+legpress:{n:'Жим ногами',m:'Ноги',k:'s',
+ a:svg(LP+P('70,150 118,120 148,140')+R(148,112,7,58,BL)),
+ b:svg(LP+P('70,150 130,140 184,132')+R(184,104,7,58,BL)),
+ t:['Спина и таз прижаты к спинке.','Опускай, пока колени не согнутся примерно до 90°.','Вверху колени не «замыкай».']},
+rdl:{n:'Румынская тяга',m:'Ноги',k:'s',
+ t:['Колени чуть согнуты, спина прямая.','Таз назад, вес скользит вдоль ног.','Начни с лёгкого веса.']},
+latpull:{n:'Тяга верхнего блока',m:'Спина',k:'s',
+ a:svg(H(100,82)+P('100,150 100,96')+LAT+P('100,102 106,64 110,30')+L(92,28,128,28,BL,4)+L(110,0,110,28,GR,2)),
+ b:svg(H(94,82)+P('100,150 96,96')+LAT+P('98,102 86,124 110,100')+L(104,100,124,100,BL,4)+L(114,0,114,100,GR,2)),
+ t:['Хват чуть шире плеч, бёдра под валиком.','Тяни к груди, сводя лопатки.','Без раскачки, вверх возвращай медленно.']},
+row:{n:'Тяга нижнего блока',m:'Спина',k:'s',
+ a:svg(H(86,98)+P('90,165 86,112')+ROW+P('86,120 120,126 148,128')+D(150,128,6)+L(150,128,198,128,GR,2)),
+ b:svg(H(92,98)+P('90,165 92,112')+ROW+P('92,122 72,130 104,140')+D(106,140,6)+L(106,140,198,128,GR,2)),
+ t:['Колени чуть согнуты, спина прямая.','Тяни к животу, локти у корпуса.','Назад не откидывайся.']},
+dumbrow:{n:'Тяга гантели одной рукой',m:'Спина',k:'s',
+ t:['Рука и колено на скамье, спина ровная.','Тяни к поясу, локоть вдоль корпуса.','Без рывков.']},
+bench:{n:'Жим штанги лёжа',m:'Грудь',k:'s',
+ a:svg(BEN+P('78,124 78,72')+D(78,66,8)),
+ b:svg(BEN+P('78,124 96,118 78,108')+D(78,104,8)),
+ t:['Лопатки сведены, таз на скамье.','Опусти к середине груди, выжми вверх.','Тяжело? Возьми страхующего.']},
+dips:{n:'Отжимания на брусьях',m:'Грудь',k:'s',
+ a:svg(DIP+H(122,52)+P('120,68 114,118')+P('114,118 110,148 90,156')+P('120,68 120,100')),
+ b:svg(DIP+H(124,78)+P('122,94 114,142')+P('114,142 110,166 90,172')+P('122,94 104,106 120,102')),
+ t:['Корпус чуть вперёд, локти не разводи.','Опускайся до лёгкого растяжения груди.','Тяжело? Делай отжимания от пола.']},
+ohp:{n:'Жим гантелей сидя',m:'Плечи',k:'s',
+ t:['Спина прижата к спинке.','Выжимай вверх, поясницу не прогибай.','Опускай до уровня ушей.']},
+curl:{n:'Сгибание рук на бицепс',m:'Бицепс',k:'s',
+ t:['Локти прижаты к корпусу.','Без раскачки.','Опускай медленно.']},
+triceps:{n:'Разгибание рук на блоке',m:'Трицепс',k:'s',
+ t:['Локти прижаты к бокам.','Выпрямляй руки до конца.','Плечи не двигаются.']},
+fly:{n:'Разводка гантелей лёжа',m:'Грудь',k:'s',
+ t:['Локти чуть согнуты, как будто обнимаешь.','Опускай до растяжения груди.','Вес лёгкий, без рывков.']},
+pullup:{n:'Подтягивания',m:'Спина',k:'r',
+ a:svg(L(60,40,140,40,BL,4)+H(100,80,11)+P('100,94 100,150')+P('100,150 104,176')+P('100,100 88,42')+P('100,100 112,42')),
+ b:svg(L(60,40,140,40,BL,4)+H(100,28,11)+P('100,44 100,100')+P('100,100 104,128')+P('100,50 86,42')+P('100,50 114,42')),
+ t:['Хват чуть шире плеч.','Тяни локти вниз, грудь к перекладине.','Опускайся медленно. Тяжело? Бери гравитрон.']},
+gravitron:{n:'Подтягивания в гравитроне',m:'Спина',k:'s',
+ t:['Тренажёр помогает: чем больше вес, тем легче.','Хват шире плеч, тяни к груди.','Помощь со временем уменьшай.']},
+hyper:{n:'Гиперэкстензия',m:'Спина',k:'r',
+ t:['Ноги зафиксированы, спина прямая.','Наклонись и подними корпус до прямой линии.','Назад не прогибайся и не рви.']},
+chinup:{n:'Подтягивания обратным хватом',m:'Бицепс',k:'r',
+ t:['Хват снизу, на ширине плеч.','Тяни, пока подбородок не выше перекладины.','Опускайся медленно.']},
+scott:{n:'Скамья Скотта',m:'Бицепс',k:'s',
+ t:['Руки лежат на подушке.','Поднимай штангу без раскачки.','Опускай медленно.']},
+french:{n:'Французский жим',m:'Трицепс',k:'s',
+ t:['Лёжа, штанга над грудью.','Сгибай только локти, они смотрят вверх.','Начни с лёгкого веса.']},
+ohpbar:{n:'Жим штанги вверх',m:'Плечи',k:'s',
+ t:['Стоя или сидя, штанга у плеч.','Выжимай вверх, поясницу не прогибай.','Опускай медленно к плечам.']},
+frontraise:{n:'Подъём гантелей перед собой',m:'Плечи',k:'s',
+ a:svg(H(100,38)+P('100,52 100,105')+P('100,105 102,142 100,178')+P('100,62 100,110')+D(100,114,6)),
+ b:svg(H(100,38)+P('100,52 100,105')+P('100,105 102,142 100,178')+P('100,62 148,66')+D(152,66,6)),
+ t:['Поднимай руку до уровня плеча.','Корпус не раскачивай.','Опускай медленно.']},
+latraise:{n:'Подъём гантелей в стороны',m:'Плечи',k:'s',
+ a:svg(H(100,38)+P('100,52 100,105')+P('100,105 102,142 100,178')+P('100,62 88,108')+P('100,62 112,108')+D(88,112,5)+D(112,112,5)),
+ b:svg(H(100,38)+P('100,52 100,105')+P('100,105 102,142 100,178')+P('100,62 52,66')+P('100,62 148,66')+D(48,66,5)+D(152,66,5)),
+ t:['Руки в стороны до уровня плеч.','Локти чуть согнуты.','Вес лёгкий, без рывков.']},
+rearfly:{n:'Разводка гантелей в наклоне',m:'Плечи',k:'s',
+ t:['Наклонись, спина прямая.','Разводи руки в стороны, сводя лопатки.','Вес лёгкий.']},
+crunch:{n:'Скручивания',m:'Пресс',k:'r',
+ a:svg(H(48,160,10)+P('60,164 120,164')+P('120,164 150,130 180,164')+P('62,152 54,140')),
+ b:svg(H(68,128,10)+P('78,140 120,164')+P('120,164 150,130 180,164')+P('82,134 94,120')),
+ t:['Поднимаются только лопатки.','Поясница остаётся на полу.','Двигайся медленно.']},
+legraise:{n:'Подъём ног в висе',m:'Пресс',k:'r',
+ a:svg(L(60,16,140,16,BL,4)+H(100,44,11)+P('100,58 100,115')+P('100,115 100,170')+P('100,60 90,18')+P('100,60 110,18')),
+ b:svg(L(60,16,140,16,BL,4)+H(100,44,11)+P('100,58 100,115')+P('100,115 150,115')+P('100,60 90,18')+P('100,60 110,18')),
+ t:['Не раскачивай ноги.','Поднимай ноги прямо или чуть согнутыми.','Опускай медленно.']},
+legcurl:{n:'Сгибание ног в тренажёре',m:'Ноги',k:'s',
+ t:['Валик на задней части голени.','Сгибай ноги без рывка.','Опускай медленно.']},
+legext:{n:'Разгибание ног в тренажёре',m:'Ноги',k:'s',
+ t:['Спина прижата к спинке.','Выпрями ноги, но колени не «замыкай».','Опускай медленно.']},
+plank:{n:'Планка',m:'Пресс',k:'t',
+ t:['Опора на предплечья, тело ровной линией.','Поясницу не прогибай.','Начни с 20-30 секунд.']},
+treadmill:{n:'Дорожка',m:'Кардио',k:'c',
+ t:['Ходьба или лёгкий бег.','Темп такой, чтобы мог говорить.','Начни с 10-15 минут.']},
+bike:{n:'Велотренажёр',m:'Кардио',k:'c',
+ t:['Сиденье на уровне бёдер.','Крути ровно, без рывков.','Колени не заваливай внутрь.']},
+elliptic:{n:'Эллипс',m:'Кардио',k:'c',
+ t:['Спина прямая, за ручки держись легко.','Шагай плавно.','Дыши ровно.']},
+rower:{n:'Гребной тренажёр',m:'Кардио',k:'c',
+ t:['Сначала толкай ногами, потом тяни руками.','Спина прямая.','Темп спокойный.']},
+rope:{n:'Скакалка',m:'Кардио',k:'c',
+ t:['Прыгай низко, на носках.','Локти у корпуса, крутят кисти.','Начни с 30 секунд и отдохни.']},
+sthams:{n:'Задняя часть бедра',m:'Растяжка',k:'t',
+ t:['Нога вытянута, тянись к носку.','Спина ровная.','Держи 30 секунд, без боли.']},
+stquad:{n:'Передняя часть бедра',m:'Растяжка',k:'t',
+ t:['Стоя подтяни пятку к ягодице.','Колени рядом, таз вперёд.','30 секунд на каждую ногу.']},
+stchest:{n:'Грудь',m:'Растяжка',k:'t',
+ t:['Рука на стене, поворачивай корпус.','Плечо опущено.','30 секунд на каждую руку.']},
+stback:{n:'Спина («кошка-корова»)',m:'Растяжка',k:'t',
+ t:['Встань на четвереньки.','То выгни спину, то прогни.','10 плавных повторов.']},
+stshoulder:{n:'Плечи',m:'Растяжка',k:'t',
+ t:['Рука поперёк груди, придерживай другой.','Плечо не поднимай.','30 секунд на каждую руку.']}
+};
+var C=function(x,y,r,col,w){return '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="'+w+'"/>'};
+var STAND=H(100,38)+P('100,52 100,105')+P('100,105 102,142 100,178');
+var DRB=R(52,140,78,8)+R(58,148,5,32)+R(118,148,5,32)+H(64,90,10)+P('128,100 78,92')+P('128,100 138,140 140,178')+P('128,100 118,136')+P('78,92 74,136');
+var OHB=R(86,152,40,6)+H(100,82)+P('100,148 100,96')+P('100,148 140,148 140,178');
+var HNG=H(60,100)+P('118,110 74,98')+P('118,110 116,145 114,178');
+var LCB=R(30,150,130,8)+R(40,158,5,22)+R(140,158,5,22)+H(44,138,9)+P('56,142 108,142');
+var HYB=R(98,112,28,8,BL)+L(112,122,112,176,GR,4)+R(146,150,8,26,BL)+P('112,120 150,168');
+var BARB=L(60,40,140,40,BL,4);
+// Схемы: [начало, конец (если есть), подписи (если нужны)]
+var ART={
+rdl:[svg(STAND+P('100,62 112,108')+D(112,112,7)), svg(HNG+P('74,98 80,140')+D(80,146,7))],
+dumbrow:[svg(DRB+P('100,96 102,144')+D(102,148,7)), svg(DRB+P('100,96 124,104 112,118')+D(112,122,7))],
+ohp:[svg(OHB+P('100,102 118,102 118,80')+D(118,76,7)), svg(OHB+P('100,102 124,72 122,36')+D(122,32,7))],
+curl:[svg(STAND+P('100,62 112,108')+D(112,112,6)), svg(STAND+P('100,62 112,100 134,82')+D(136,78,6))],
+triceps:[svg(STAND+L(122,0,122,70,GR,2)+L(112,70,132,70,BL,4)+P('100,62 108,100 122,72')), svg(STAND+L(116,0,116,138,GR,2)+L(106,138,126,138,BL,4)+P('100,62 108,100 114,136'))],
+plank:[svg(H(50,142,10)+P('64,148 172,172')+P('64,148 64,172 92,172')), svg(H(50,142,10)+P('64,148 118,116 172,172')+P('64,148 64,172 92,172')), ['Правильно','Ошибка: таз вверх']],
+treadmill:[svg(R(30,164,130,10,BL)+R(152,90,6,76)+L(152,96,126,96,GR,3)+H(90,50)+P('90,64 92,112')+P('92,112 112,140 104,162')+P('92,112 76,142 66,160')+P('90,72 108,88 120,80')+P('90,72 74,90 62,82')), null, ['Ходьба или бег']],
+bike:[svg(L(60,172,160,172,GR,5)+C(118,150,22,GR,4)+L(86,110,86,168,GR,4)+R(72,104,28,6,BL)+L(142,90,150,172,GR,4)+L(134,90,148,90,GR,5)+H(122,54,10)+P('88,104 112,70')+P('112,72 138,90')+P('88,106 116,128 106,152')+D(108,152,5)), null, ['Положение на тренажёре']],
+elliptic:[svg(R(50,168,110,8)+L(134,50,138,112,BL,4)+H(100,40)+P('100,54 100,104')+P('100,104 86,138 90,164')+P('100,104 118,136 112,164')+P('100,66 134,70')+R(76,164,28,5,BL)+R(104,164,28,5,BL)), null, ['Положение на тренажёре']],
+rower:[svg(L(26,172,170,172,GR,4)+R(58,152,20,6,BL)+R(142,136,6,38)+C(160,148,20,GR,4)+H(80,86)+P('70,148 80,100')+P('70,148 142,152')+P('80,108 112,116')+D(114,116,6)+L(114,116,142,124,GR,2)), null, ['Тяга на тренажёре']],
+rope:[svg(H(100,46)+P('100,60 100,112')+P('100,112 96,150')+P('100,112 106,150')+P('100,72 76,96')+P('100,72 124,96')+'<path d="M76,98 C40,200 160,200 124,98" fill="none" stroke="'+BL+'" stroke-width="3" stroke-linecap="round"/>'), null, ['Прыжок']],
+sthams:[svg(P('80,170 172,170')+P('80,170 122,128')+H(134,120,10)+P('122,132 158,164')+D(172,170,6)), null, ['Тянись к носку']],
+stquad:[svg(STAND+P('100,105 108,140 86,114')+P('100,64 90,92 86,112')+D(86,114,6)), null, ['Пятка к ягодице']],
+stchest:[svg(R(152,20,8,160)+STAND+P('100,62 152,66')+D(150,66,6)+P('100,62 92,108')), null, ['Рука на стене']],
+stback:[svg(H(44,132,10)+P('62,120 96,96 130,120')+P('62,120 60,172')+P('130,120 130,170 168,172')), svg(H(44,108,10)+P('62,120 96,134 130,120')+P('62,120 60,172')+P('130,120 130,170 168,172')), ['Выгни вверх','Прогни вниз']],
+stshoulder:[svg(STAND+P('100,66 60,66')+P('100,64 112,84 72,70')+D(66,66,6)), null, ['Рука поперёк груди']],
+fly:[svg(BEN+P('78,124 78,74')+D(78,70,8)), svg(BEN+P('78,124 74,140 66,156')+D(66,160,8))],
+gravitron:[svg(BARB+H(100,80)+P('100,94 100,150')+P('100,100 88,42')+P('100,100 112,42')+P('100,150 120,156 112,176')+R(96,156,36,8,BL)), svg(BARB+H(100,28)+P('100,44 100,100')+P('100,50 86,42')+P('100,50 114,42')+P('100,100 120,106 112,126')+R(96,106,36,8,BL))],
+hyper:[svg(HYB+P('112,120 84,150')+H(76,160,10)), svg(HYB+P('112,120 78,78')+H(70,66,10))],
+chinup:[EX.pullup.a, EX.pullup.b],
+scott:[svg(L(100,104,126,134,GR,12)+R(136,150,30,6)+H(150,80)+P('150,148 150,94')+P('150,148 120,148 118,178')+P('150,98 116,118')+P('116,118 112,150')+D(112,154,7)), svg(L(100,104,126,134,GR,12)+R(136,150,30,6)+H(150,80)+P('150,148 150,94')+P('150,148 120,148 118,178')+P('150,98 116,118')+P('116,118 112,96')+D(110,92,7))],
+french:[svg(BEN+P('78,124 78,74')+D(78,70,8)), svg(BEN+P('78,124 78,86')+P('78,86 56,102')+D(54,106,8))],
+ohpbar:[svg(STAND+P('100,64 114,78 108,58')+D(108,54,8)), svg(STAND+P('100,62 112,36 112,10')+D(112,6,8))],
+rearfly:[svg(H(100,86,10)+P('100,98 100,130')+P('100,130 92,178')+P('100,130 108,178')+P('100,100 84,140')+P('100,100 116,140')+D(84,144,6)+D(116,144,6)), svg(H(100,86,10)+P('100,98 100,130')+P('100,130 92,178')+P('100,130 108,178')+P('100,100 56,100')+P('100,100 144,100')+D(52,100,6)+D(148,100,6))],
+legcurl:[svg(LCB+P('108,142 160,142')+D(158,142,7)), svg(LCB+P('108,142 150,142')+P('150,142 140,102')+D(138,98,7))],
+legext:[svg(R(56,100,6,58)+R(60,150,50,8)+H(76,82)+P('76,148 76,96')+P('76,148 116,148')+P('116,148 116,178')+D(116,172,7)), svg(R(56,100,6,58)+R(60,150,50,8)+H(76,82)+P('76,148 76,96')+P('76,148 116,148')+P('116,148 160,148')+D(160,148,7))]
+};
+Object.keys(ART).forEach(function(k){var v=ART[k];EX[k].a=v[0];if(v[1])EX[k].b=v[1];if(v[2])EX[k].cap=v[2]});
+var CATS=['Ноги','Спина','Грудь','Плечи','Бицепс','Трицепс','Пресс','Кардио','Растяжка'];
+var TIMERS={s:[[60,'Отдых'],[120,'Отдых'],[180,'Отдых']],r:[[60,'Отдых'],[120,'Отдых'],[180,'Отдых']],c:[[600,'Кардио'],[1200,'Кардио'],[1800,'Кардио']],t:[[30,'Держим'],[60,'Держим']]};
+
+// ---------- Готовые планы (заготовки) ----------
+// У каждого плана есть уровни (v): Лёгкий, Средний, Сложный. Новый план добавляй по образцу.
+var R_EASY='Лёгкий: 12-15 повторов до отказа, отдых 2-3 минуты. 1-й месяц по 1 подходу, 2-й месяц по 2. Получилось 15? Добавь вес.';
+var R_MID='Средний: 10-12 повторов, по 2 подхода, отдых 1,5-2 минуты. Между тренировками день отдыха. Добавляй вес на 5-10%, когда все повторы даются легко.';
+var R_HARD='Сложный: 8-12 повторов, по 3 подхода, отдых 1-2 минуты. Между тренировками день отдыха. Каждую неделю добавляй вес или повторы.';
+var R_ART='Программа из статьи: по 3 подхода по 10 повторов, приседания 4×15, отдых до 1 минуты. Между тренировками день отдыха.';
+var R_CARDIO='Кардио 20-30 минут в удобном темпе. В растяжке держи каждую позу 30 секунд, без боли.';
+var RULE=R_EASY;
+var FB=['squat','legpress','latpull','row','bench','dips'];
+var PLANS={
+ full:{n:'Full Body',d:'Всё тело за тренировку. Выбери нагрузку.',v:[
+  {l:'Лёгкий',r:R_EASY,days:[{n:'Тренировка A',ex:FB},{n:'Тренировка B',ex:FB}]},
+  {l:'Средний',r:R_MID,days:[
+   {n:'Тренировка A',ex:['squat','bench','latpull','ohp','crunch']},
+   {n:'Тренировка B',ex:['legpress','fly','row','triceps','plank']},
+   {n:'Тренировка C',ex:['rdl','dips','latpull','frontraise','curl','crunch']}]},
+  {l:'Сложный',r:R_HARD,days:[
+   {n:'Тренировка A',ex:['squat','bench','pullup','ohpbar','french','curl','legraise']},
+   {n:'Тренировка B',ex:['legpress','legcurl','dips','row','latraise','scott','crunch']},
+   {n:'Тренировка C',ex:['rdl','bench','latpull','rearfly','triceps','hyper','plank']}]}]},
+ article:{n:'По группам мышц',d:'3 дня: грудь, спина, ноги. Программа для новичков из статьи.',v:[
+  {l:'Лёгкий',r:R_ART,days:[
+   {n:'День 1: грудь и трицепс',ex:['bench','fly','french','dips']},
+   {n:'День 2: спина и бицепс',ex:['pullup','row','curl','latpull']},
+   {n:'День 3: ноги и пресс',ex:['squat','legcurl','legext','crunch','legraise']}]}]},
+ ppl:{n:'Пуш / Пулл / Ноги',d:'3 дня: жим, тяга и ноги.',v:[
+  {l:'Средний',r:R_MID,days:[
+   {n:'Пуш',ex:['bench','ohp','dips','triceps']},
+   {n:'Пулл',ex:['latpull','row','dumbrow','curl']},
+   {n:'Ноги и пресс',ex:['squat','legpress','rdl','plank']}]}]},
+ ul:{n:'Верх / Низ',d:'4 дня: два раза верх и два раза низ.',v:[
+  {l:'Сложный',r:R_HARD,days:[
+   {n:'Верх 1',ex:['bench','latpull','ohp','curl','triceps']},
+   {n:'Низ 1',ex:['squat','legpress','rdl','plank']},
+   {n:'Верх 2',ex:['dips','row','ohp','dumbrow','curl']},
+   {n:'Низ 2',ex:['legpress','squat','rdl','plank']}]}]},
+ cardio:{n:'Кардио и растяжка',d:'Лёгкие дни: кардио и растяжка.',v:[
+  {l:'Лёгкий',r:R_CARDIO,days:[
+   {n:'Кардио',ex:['treadmill','bike','elliptic']},
+   {n:'Растяжка',ex:['sthams','stquad','stchest','stback','stshoulder']}]}]}
+};
+
+// ---------- Вспомогательное ----------
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function go(s,a,b){view.s=s;view.a=(a===undefined?null:a);view.b=(b===undefined?null:b);render();window.scrollTo(0,0)}
+function back(label,to,a){return '<button class="back" onclick="go(\''+to+'\''+(a!==undefined?','+a:'')+')">‹ '+label+'</button>'}
+function persist(){save('state2',state)}
+function copyPlan(p){return {n:p.n,days:p.days.map(function(x){return {n:x.n,ex:x.ex.slice()}})}}
+function fmtLog(x){var k=EX[x.ex]?EX[x.ex].k:'s';
+ if(k==='c')return esc(x.a)+' мин'; if(k==='t')return esc(x.a)+' сек'; if(k==='r')return esc(x.a)+' повт.'; return esc(x.a)+' кг × '+esc(x.b)}
+
+// ---------- Выбор и правка плана ----------
+var M=null;
+function askConfirm(text,fn){var m=document.getElementById('modal');M=fn;
+ m.innerHTML='<div class="box"><p style="margin:0 0 14px">'+text+'</p><div class="grid"><button class="btn ghost" onclick="closeM()">Нет</button><button class="btn" onclick="yesM()">Да</button></div></div>';
+ m.style.display='flex'}
+function closeM(){document.getElementById('modal').style.display='none';M=null}
+function yesM(){var f=M;closeM();if(f)f()}
+function toast(t){var e=document.getElementById('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){e.style.display='none'},2000)}
+function dayWord(n){return n===1?'день':(n<5?'дня':'дней')}
+function doChoose(id,vi){var x=PLANS[id],v=x.v[vi];
+ state.my={n:x.n+' · '+v.l,r:v.r,days:v.days.map(function(d){return {n:d.n,ex:d.ex.slice()}})};persist();go('home')}
+function choosePlan(id,vi){
+ if(state.my){askConfirm('Заменить текущий план?',function(){doChoose(id,vi)})}else{doChoose(id,vi)}}
+function doOwn(){state.my={n:'Мой план',days:[{n:'День 1',ex:[]}]};persist();go('edit')}
+function ownPlan(){
+ if(state.my){askConfirm('Заменить текущий план?',doOwn)}else{doOwn()}}
+function renameP(v){state.my.n=v||'Мой план';persist()}
+function renameD(i,v){state.my.days[i].n=v||('День '+(i+1));persist()}
+function rmEx(i,j){state.my.days[i].ex.splice(j,1);persist();render()}
+function addEx(i,id){var d=state.my.days[i];if(d.ex.indexOf(id)<0){d.ex.push(id);persist();render()}}
+function addDay(){state.my.days.push({n:'День '+(state.my.days.length+1),ex:[]});persist();render()}
+function rmDay(i){if(state.my.days.length<2)return;askConfirm('Удалить этот день?',function(){state.my.days.splice(i,1);persist();render()})}
+
+// ---------- Таймер ----------
+var T={end:0,label:'',done:false},ctx=null;
+function fmtT(s){var m=Math.floor(s/60),x=s%60;return m+':'+(x<10?'0':'')+x}
+function startTimer(sec,label){
+ try{var AC=window.AudioContext||window.webkitAudioContext;if(!ctx&&AC)ctx=new AC();if(ctx&&ctx.resume)ctx.resume()}catch(e){}
+ T.end=Date.now()+sec*1000;T.label=label;T.done=false;
+ var el=document.getElementById('timer');el.style.display='flex';
+ el.innerHTML='<span><span id="tl"></span> <strong id="tt"></strong></span><button id="tb" onclick="stopTimer()">Стоп</button>';
+ tick()}
+function stopTimer(){T.end=0;document.getElementById('timer').style.display='none'}
+function beep(){try{if(!ctx)return;for(var i=0;i<3;i++){(function(i){var o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.value=0.2;o.start(ctx.currentTime+i*0.35);o.stop(ctx.currentTime+i*0.35+0.2)})(i)}}catch(e){}}
+function buzz(){try{if(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.HapticFeedback)Telegram.WebApp.HapticFeedback.notificationOccurred('success')}catch(e){}try{if(navigator.vibrate)navigator.vibrate([200,100,200])}catch(e){}}
+function tick(){
+ if(!T.end)return;
+ var left=Math.ceil((T.end-Date.now())/1000),tl=document.getElementById('tl'),tt=document.getElementById('tt');
+ if(!tl||!tt)return;
+ if(left<=0){
+  if(!T.done){T.done=true;beep();buzz();var b=document.getElementById('tb');if(b)b.textContent='ОК'}
+  tl.textContent='Время вышло!';tt.textContent='';return}
+ tl.textContent=T.label;tt.textContent=fmtT(left)}
+setInterval(tick,250);
+function timerBtns(k){return TIMERS[k].map(function(x){return '<button class="btn ghost small" onclick="startTimer('+x[0]+',\''+x[1]+'\')">'+(x[0]>=60?(x[0]/60)+' мин':x[0]+' сек')+'</button>'}).join(' ')}
+
+function customTimer(){
+ var m=parseInt(document.getElementById('tm').value)||0,s=parseInt(document.getElementById('ts').value)||0,t=m*60+s;
+ if(t<=0){toast('Введи время');return}
+ startTimer(t,'Таймер')}
+function timerCard(k){
+ var l=k?TIMERS[k]:[[60,'Таймер'],[120,'Таймер'],[180,'Таймер'],[300,'Таймер']];
+ return '<div class="card"><h2>'+(k==='s'||k==='r'?'Отдых между подходами':'Таймер')+'</h2><div class="opts" style="margin-top:0">'
+  +l.map(function(x){return '<button class="btn ghost small" onclick="startTimer('+x[0]+',\''+x[1]+'\')">'+(x[0]>=60?(x[0]/60)+' мин':x[0]+' сек')+'</button>'}).join('')
+  +'</div><p class="muted" style="margin:6px 0">Или своё время:</p><div class="tm"><input id="tm" type="number" inputmode="numeric" placeholder="Мин"><input id="ts" type="number" inputmode="numeric" placeholder="Сек"><button class="btn" onclick="customTimer()">Старт</button></div></div>'}
+
+// ---------- Экраны ----------
+function render(){
+ var h='',p=state.my;
+ if(view.s==='welcome'){
+  h+=(p?back('Назад','home'):'')+'<h1>Выбери план</h1><p class="muted">Лёгкий: для старта. Средний: когда освоился. Сложный: больше упражнений и подходов. Любой план потом можно менять.</p>';
+  Object.keys(PLANS).forEach(function(id){var x=PLANS[id];
+   h+='<div class="card"><h2>'+x.n+'</h2><p class="muted">'+x.d+'</p><div class="opts">'+x.v.map(function(v,i){return '<button class="btn small" onclick="choosePlan(\''+id+'\','+i+')">'+v.l+' · '+v.days.length+' '+dayWord(v.days.length)+'</button>'}).join('')+'</div></div>'});
+  h+='<div class="card"><h2>Свой план</h2><p class="muted">Собери сам из упражнений.</p><button class="btn" onclick="ownPlan()">Собрать</button></div>';
+ }
+ else if(view.s==='home'){
+  h+='<h1>'+esc(p.n)+'</h1>';
+  h+='<div class="card click" onclick="go(\'warm\')"><div class="row"><div><h2>Разминка</h2><span class="muted">8-10 минут перед тренировкой</span></div><span>›</span></div></div>';
+  h+=timerCard();p.days.forEach(function(d,i){h+='<div class="card click" onclick="go(\'day\','+i+')"><div class="row"><div><h2>'+esc(d.n)+'</h2><span class="muted">Упражнений: '+d.ex.length+'</span></div><span>›</span></div></div>'});
+  h+='<div class="card"><h2>Как тренироваться</h2><p class="muted">'+(p.r||RULE)+'</p></div>';
+  h+='<div class="grid"><button class="btn" onclick="go(\'edit\')">Изменить план</button><button class="btn ghost" onclick="go(\'diary\')">Дневник</button></div>';
+  h+='<button class="btn ghost" onclick="go(\'welcome\')">Выбрать другой план</button>';
+  h+='<p class="muted">При травмах и болезнях сначала спроси врача. Технику на первых занятиях покажи тренеру.</p>';
+ }
+ else if(view.s==='warm'){
+  h+=back('Назад','home')+'<h1>Разминка</h1><p class="muted">Всего 8-10 минут.</p>';
+  h+='<div class="card"><h2>1. Кардио, 5 минут</h2><p class="muted">Лёгкая дорожка, велосипед или эллипс.</p><button class="btn small" onclick="startTimer(300,\'Кардио\')">Таймер 5 мин</button></div>';
+  h+='<div class="card"><h2>2. Суставы, 3-4 минуты</h2><ul><li>Круги плечами и руками</li><li>Наклоны и повороты корпуса</li><li>Круги тазом</li><li>10 приседаний</li><li>«Кошка-корова»</li></ul><button class="btn small" onclick="startTimer(240,\'Суставы\')">Таймер 4 мин</button></div>';
+  h+='<div class="card"><h2>3. Подводящие подходы</h2><p class="muted">Перед первым упражнением: половина веса × 10, потом 70% веса × 5. Не до отказа.</p></div>';
+ }
+ else if(view.s==='day'){
+  var d=p.days[view.a];
+  h+=back('План','home')+'<h1>'+esc(d.n)+'</h1>';
+  if(!d.ex.length)h+='<p class="muted">Тут пусто. Нажми «Изменить план» и добавь упражнения.</p>';
+  d.ex.forEach(function(id,i){var e=EX[id];
+   h+='<div class="card click" onclick="go(\'ex\',\''+id+'\','+view.a+')"><div class="row"><div class="thumb">'+e.a+'</div><div style="flex:1"><h2>'+(i+1)+'. '+e.n+'</h2><span class="tag" style="margin-left:0">'+e.m+'</span></div><span>›</span></div></div>'});
+ }
+ else if(view.s==='ex'){
+  var e=EX[view.a],mine=log.filter(function(x){return x.ex===view.a}),last=mine[mine.length-1];
+  h+=back('Назад','day',view.b)+'<h1>'+e.n+'<span class="tag">'+e.m+'</span></h1>';
+  if(e.a){var cp=e.cap||['Начало','Конец'];h+='<div class="card"><div class="pair"'+(e.b?'':' style="max-width:300px;margin:0 auto"')+'><figure>'+e.a+'<figcaption>'+cp[0]+'</figcaption></figure>'+(e.b?'<figure>'+e.b+'<figcaption>'+cp[1]+'</figcaption></figure>':'')+'</div><p class="muted">Рисунки схематичные.</p></div>'}
+  else{h+='<div class="soon card">Схема скоро появится</div>'}
+  h+='<div class="card"><h2>Техника</h2><ul>'+e.t.map(function(x){return '<li>'+x+'</li>'}).join('')+'</ul></div>';
+  h+=timerCard(e.k);
+  var inp=e.k==='s'?'<div class="grid"><input id="i1" type="number" inputmode="decimal" placeholder="Вес, кг"><input id="i2" type="number" inputmode="numeric" placeholder="Повторы"></div>'
+        :'<div style="margin:8px 0"><input id="i1" type="number" inputmode="numeric" placeholder="'+(e.k==='c'?'Минуты':e.k==='r'?'Повторы':'Секунды')+'"></div>';
+  h+='<div class="card"><h2>Записать</h2>'+(last?'<p class="muted">В прошлый раз: '+fmtLog(last)+' ('+esc(last.d)+')</p>':'')+inp+'<button class="btn" onclick="addLog()">Сохранить</button></div>';
+ }
+ else if(view.s==='diary'){
+  h+=back('Назад','home')+'<h1>Дневник</h1>';
+  if(!log.length)h+='<p class="muted">Пока пусто. Записи появятся после первого сохранения.</p>';
+  log.slice().reverse().forEach(function(x){h+='<div class="card"><div class="row"><strong>'+esc(EX[x.ex]?EX[x.ex].n:x.ex)+'</strong><span class="muted">'+esc(x.d)+'</span></div><span>'+fmtLog(x)+'</span></div>'});
+  if(log.length)h+='<button class="btn ghost" onclick="clearLog()">Очистить дневник</button>';
+ }
+ else if(view.s==='edit'){
+  h+=back('Готово','home')+'<h1>Изменить план</h1>';
+  h+='<input value="'+esc(p.n)+'" onchange="renameP(this.value)" placeholder="Название плана">';
+  p.days.forEach(function(d,i){
+   h+='<div class="card"><input value="'+esc(d.n)+'" onchange="renameD('+i+',this.value)" placeholder="Название дня">';
+   d.ex.forEach(function(id,j){h+='<div class="item"><div class="thumb" style="margin-right:10px">'+EX[id].a+'</div><span style="flex:1">'+EX[id].n+'</span><button class="x" onclick="rmEx('+i+','+j+')">✕</button></div>'});
+   h+='<div class="opts"><button class="btn small" onclick="go(\'pick\','+i+')">+ Упражнение</button>'+(p.days.length>1?'<button class="btn ghost small" onclick="rmDay('+i+')">Удалить день</button>':'')+'</div></div>'});
+  h+='<button class="btn" onclick="addDay()">+ Добавить день</button>';
+ }
+ else if(view.s==='pick'){
+  var day=p.days[view.a];
+  h+=back('Готово','edit')+'<h1>Добавить в «'+esc(day.n)+'»</h1>';
+  CATS.forEach(function(c){
+   var ids=Object.keys(EX).filter(function(id){return EX[id].m===c});if(!ids.length)return;
+   h+='<h3>'+c+'</h3>';
+   ids.forEach(function(id){var has=day.ex.indexOf(id)>=0;
+    h+='<div class="card click" onclick="addEx('+view.a+',\''+id+'\')"><div class="row"><div class="thumb">'+EX[id].a+'</div><span style="flex:1">'+EX[id].n+'</span><span>'+(has?'✓':'+')+'</span></div></div>'})});
+ }
+ document.getElementById('app').innerHTML=h;
+}
+
+function addLog(){
+ var e=EX[view.a],a=document.getElementById('i1').value,b=e.k==='s'?document.getElementById('i2').value:'';
+ if(!a||(e.k==='s'&&!b)){toast(e.k==='s'?'Введи вес и повторы':'Введи число');return}
+ log.push({ex:view.a,a:a,b:b,d:new Date().toLocaleDateString('ru-RU')});save('log',log);render();
+}
+function clearLog(){askConfirm('Удалить все записи?',function(){log=[];save('log',log);render()})}
+render();
+</script></body></html>
